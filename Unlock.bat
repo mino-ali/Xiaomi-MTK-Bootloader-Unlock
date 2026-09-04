@@ -35,6 +35,30 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b
 )
+echo.
+echo Checking for required vendor binaries...
+set "DA_FILE=MTK_AllInOne_DA.bin"
+if not exist "%DA_FILE%" if exist "DA.bin" set "DA_FILE=DA.bin"
+if not exist "%DA_FILE%" (
+    echo.
+    echo [!] Error: MTK_AllInOne_DA.bin is missing from the bin folder!
+    echo [!] Please extract MTK_AllInOne_DA.bin from the root of your stock Fastboot ROM
+    echo [!] and place it directly inside the "bin" folder.
+    pause
+    exit /b 1
+)
+
+set "PL_FILE=preloader_ruby.bin"
+if not exist "%PL_FILE%" if exist "preloader.bin" set "PL_FILE=preloader.bin"
+if not exist "%PL_FILE%" if exist "preloader_raw.bin" set "PL_FILE=preloader_raw.bin"
+if not exist "%PL_FILE%" (
+    echo.
+    echo [!] Error: preloader_ruby.bin is missing from the bin folder!
+    echo [!] Please extract preloader_ruby.bin from the "images" folder of your
+    echo [!] stock Fastboot ROM and place it directly inside the "bin" folder.
+    pause
+    exit /b 1
+)
 
 echo.
 echo Checking and installing required Python dependencies...
@@ -48,30 +72,30 @@ if %ERRORLEVEL% NEQ 0 (
 
 if exist private.pem del /f /q private.pem
 if exist public.pem del /f /q public.pem
-if exist private.pem del /f /q signature.bin
-if exist public.pem del /f /q lk_patched.img
-
+if exist signature.bin del /f /q signature.bin
+if exist lk_patched.img del /f /q lk_patched.img
 echo.
 echo Installing libusbK driver for BROM bypass...
 pnputil /add-driver "%~dp0usb_driver\*.inf" /install >nul 2>&1
 echo Driver installation finished.
 
-echo ""
-echo [1/2] Reading preloader..."
+echo.
+echo [1/3] Reading preloader...
 echo Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)
-antumbra r preloader preloader.bin --da DA.bin -p preloader.bin
+antumbra r preloader %PL_FILE% --da %DA_FILE% -p %PL_FILE%
 
-echo ""
-echo "[1/2] Reading lk_a..."
-echo "Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)"
-antumbra r lk_a lk_a.img --da DA.bin -p preloader.bin
+echo.
+echo [2/3] Reading lk_a...
+echo If the device rebooted, please power it off again, then reconnect.
+antumbra r lk_a lk_a.img --da %DA_FILE% -p %PL_FILE%
 
-echo ""
-echo "[2/2] Reading lk_b..."
-echo "If the device rebooted, please power it off again, then reconnect."
-antumbra r lk_b lk_b.img --da DA.bin -p preloader.bin
+echo.
+echo [3/3] Reading lk_b...
+echo If the device rebooted, please power it off again, then reconnect.
+antumbra r lk_b lk_b.img --da %DA_FILE% -p %PL_FILE%
 
-echo "Patching lk..."
+echo.
+echo Patching lk...
 python lk-unlock.py patch lk_a.img -o lk_patched.img
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -91,15 +115,15 @@ copy /y lk_b.img "backup\lk_b.img" >nul
 echo.
 echo [1/2] Flashing lk_a...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra w lk_a lk_patched.img --da DA.bin -p preloader.bin
+antumbra w lk_a lk_patched.img --da %DA_FILE% -p %PL_FILE%
 
 echo.
 echo [2/2] Flashing lk_b...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra w lk_b lk_patched.img --da DA.bin -p preloader.bin
+antumbra w lk_b lk_patched.img --da %DA_FILE% -p %PL_FILE%
 
 echo.
-echo Uninstalling USBlibk...
+echo Uninstalling libusbK...
 powershell -NoProfile -Command "$inf = (Get-ChildItem -Path '%~dp0usb_driver\*.inf').Name; if ($inf) { Get-WindowsDriver -Online | Where-Object { $_.OriginalFileName -match $inf } | ForEach-Object { & pnputil /delete-driver $_.Driver /uninstall } }"
 
 for /f "tokens=*" %%i in ('powershell -NoProfile -Command "Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match 'USB\\\\VID_0E8D&PID_0003' } | Select-Object -ExpandProperty InstanceId"') do (
@@ -108,7 +132,6 @@ for /f "tokens=*" %%i in ('powershell -NoProfile -Command "Get-PnpDevice -Presen
 
 pnputil /scan-devices >nul 2>&1
 echo Driver restore complete.
-
 echo.
 echo.
 echo =================================================================
@@ -138,4 +161,4 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 echo Unlock success!
 pause
-exit /b 1
+exit /b 0

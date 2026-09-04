@@ -14,6 +14,7 @@ bin/lk_a.img
 bin/lk_b.img
 bin/preloader.bin
 bin/preloader_ruby.bin
+bin/preloader_raw.bin
 bin/DA.bin
 bin/MTK_AllInOne_DA.bin
 bin/backup/

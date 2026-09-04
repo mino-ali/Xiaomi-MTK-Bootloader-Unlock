@@ -29,10 +29,33 @@ if ! command -v fastboot &> /dev/null; then
     read -p "Press Enter to exit..."
     exit 1
 fi
+echo ""
+echo "Checking for required vendor binaries..."
+DA_FILE="MTK_AllInOne_DA.bin"
+[ ! -f "$DA_FILE" ] && [ -f "DA.bin" ] && DA_FILE="DA.bin"
+if [ ! -f "$DA_FILE" ]; then
+    echo ""
+    echo "[!] Error: MTK_AllInOne_DA.bin is missing from the bin directory!"
+    echo "[!] Please extract MTK_AllInOne_DA.bin from your stock Fastboot ROM"
+    echo "[!] and place it inside the bin/ directory."
+    read -p "Press Enter to exit..."
+    exit 1
+fi
 
+PL_FILE="preloader_ruby.bin"
+[ ! -f "$PL_FILE" ] && [ -f "preloader.bin" ] && PL_FILE="preloader.bin"
+[ ! -f "$PL_FILE" ] && [ -f "preloader_raw.bin" ] && PL_FILE="preloader_raw.bin"
+if [ ! -f "$PL_FILE" ]; then
+    echo ""
+    echo "[!] Error: preloader_ruby.bin is missing from the bin directory!"
+    echo "[!] Please extract preloader_ruby.bin from your stock ROM images/ folder"
+    echo "[!] and place it inside the bin/ directory."
+    read -p "Press Enter to exit..."
+    exit 1
+fi
 echo ""
 echo "Checking and installing required Python dependencies..."
-python -m pip install cryptography git+https://github.com/R0rt1z2/liblk --break-system-packages
+python3 -m pip install cryptography git+https://github.com/R0rt1z2/liblk --break-system-packages
 if [ $? -ne 0 ]; then
     echo ""
     echo "An error occurred while installing dependencies. Please check the output above."
@@ -100,22 +123,22 @@ read_retry() {
     exit 1
 }
 
-sudo rm -f private.pem public.pem signature.bin lk_patched.img
+rm -f private.pem public.pem signature.bin lk_patched.img
 
 echo ""
-echo "[1/2] Reading preloader..."
+echo "[1/3] Reading preloader..."
 echo "Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)"
-read_retry "preloader" ./antumbra r preloader preloader.bin --da DA.bin -p preloader.bin
+read_retry "preloader" ./antumbra r preloader "$PL_FILE" --da "$DA_FILE" -p "$PL_FILE"
 
 echo ""
-echo "[1/2] Reading lk_a..."
+echo "[2/3] Reading lk_a..."
 echo "If the device rebooted, please power it off again, then reconnect."
-read_retry "lk_a" ./antumbra r lk_a lk_a.img --da DA.bin -p preloader.bin
+read_retry "lk_a" ./antumbra r lk_a lk_a.img --da "$DA_FILE" -p "$PL_FILE"
 
 echo ""
-echo "[2/2] Reading lk_b..."
+echo "[3/3] Reading lk_b..."
 echo "If the device rebooted, please power it off again, then reconnect."
-read_retry "lk_b" ./antumbra r lk_b lk_b.img --da DA.bin -p preloader.bin
+read_retry "lk_b" ./antumbra r lk_b lk_b.img --da "$DA_FILE" -p "$PL_FILE"
 
 if [ -f "backup/lk_a.img" ]; then
     echo "Backup already exists, skipping."
@@ -127,7 +150,7 @@ else
 fi
 
 echo "Patching lk..."
-python lk-unlock.py patch lk_a.img -o lk_patched.img
+python3 lk-unlock.py patch lk_a.img -o lk_patched.img
 if [ $? -ne 0 ]; then
     echo ""
     echo "[!] Error during patching LK."
@@ -144,14 +167,14 @@ cp lk_a.img backup/lk_a.img
 cp lk_b.img backup/lk_b.img
 
 echo ""
-echo "[2/3] Flashing lk_a..."
+echo "[1/2] Flashing lk_a..."
 echo "If the device rebooted, please power it off again, then reconnect."
-flash_retry "lk_a" ./antumbra w lk_a lk_patched.img --da DA.bin -p preloader.bin
+flash_retry "lk_a" ./antumbra w lk_a lk_patched.img --da "$DA_FILE" -p "$PL_FILE"
 
 echo ""
-echo "[3/3] Flashing lk_b..."
+echo "[2/2] Flashing lk_b..."
 echo "If the device rebooted, please power it off again, then reconnect."
-flash_retry "lk_b" ./antumbra w lk_b lk_patched.img --da DA.bin -p preloader.bin
+flash_retry "lk_b" ./antumbra w lk_b lk_patched.img --da "$DA_FILE" -p "$PL_FILE"
 
 echo ""
 echo ""
@@ -170,7 +193,7 @@ echo "Waiting for fastboot device..."
 fastboot wait-for-device
 
 echo ""
-python lk-unlock.py unlock
+python3 lk-unlock.py unlock
 if [ $? -ne 0 ]; then
     echo ""
     echo "Error during fastboot unlock. Please check the output above."
