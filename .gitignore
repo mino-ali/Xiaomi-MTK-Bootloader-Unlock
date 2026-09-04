@@ -1,0 +1,30 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Generated exploit keys & patched images
+bin/private.pem
+bin/public.pem
+bin/signature.bin
+bin/lk_patched.img
+
+# Extracted partitions & user ROM binaries
+bin/lk_a.img
+bin/lk_b.img
+bin/preloader.bin
+bin/preloader_ruby.bin
+bin/DA.bin
+bin/MTK_AllInOne_DA.bin
+bin/backup/
+Restore/backup/
+backup/
+
+# State files
+bin/.antumbra_state
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
