@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3"></a>
+  <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3"></a>
   <img src="https://img.shields.io/badge/Device-Redmi_Note_12_Pro%20%2F%20Pro%2B%20(ruby)-orange.svg" alt="Device: ruby">
   <img src="https://img.shields.io/badge/SoC-MediaTek_Dimensity_1080-red.svg" alt="SoC: Dimensity 1080">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-brightgreen.svg" alt="Platform">
@@ -57,10 +57,10 @@
 
 If something goes wrong during the unlock process and your device fails to boot up, a `Restore/` folder is included to flash your original stock partition backups back onto the device:
 
-* **Windows:** Open the `Restore` folder, right-click `Restore.bat`, and select **Run as administrator**.
+* **Windows:** Open the `Restore` folder, right-click `Restore-Windows.bat`, and select **Run as administrator**.
 * **Linux:** Open a terminal in the folder and run:
   ```bash
-  chmod +x Restore.sh && sudo ./Restore.sh
+  chmod +x Restore-Linux.sh && sudo ./Restore-Linux.sh
   ```
 
 ---
@@ -71,7 +71,6 @@ If something goes wrong during the unlock process and your device fails to boot 
 1. Python (make sure it is added to your system PATH)
 2. Git
 3. Fastboot / Android USB drivers
-4. MediaTek VCOM USB drivers
 
 ### Linux
 1. Install the required packages using your package manager:
@@ -102,15 +101,15 @@ Ensure both `bin/preloader_ruby.bin` and `bin/MTK_AllInOne_DA.bin` are in place 
 ## 🚀 Step-by-Step Unlock Tutorial
 
 ### Step 1 (Windows): Launch the script
-1. Right-click `Unlock.bat` and select **Run as administrator**.
+1. Right-click `Unlock-Windows.bat` and select **Run as administrator**.
 2. When prompted by the data wipe warning, type `Y` and press Enter.
 3. Proceed to Step 2.
 
 ### Step 1 (Linux): Launch the script
 1. Open a terminal in the directory, make the script executable, and run with sudo:
    ```bash
-   chmod +x Unlock.sh
-   sudo ./Unlock.sh
+   chmod +x Unlock-Linux.sh
+   sudo ./Unlock-Linux.sh
    ```
 2. When prompted by the data wipe warning, type `Y` and press Enter.
 3. Proceed to Step 2.
@@ -144,12 +143,12 @@ Ensure both `bin/preloader_ruby.bin` and `bin/MTK_AllInOne_DA.bin` are in place 
 * Cert bypass code adapted from [lkpatcher](https://github.com/R0rt1z2/lkpatcher) and [liblk](https://github.com/R0rt1z2/liblk) by [@R0rt1z2](https://github.com/R0rt1z2).
 * [Penumbra](https://github.com/shomykohai/penumbra) (Antumbra CLI) by [@shomykohai](https://github.com/shomykohai) for dumping and flashing partitions via MediaTek BROM.
 * [mtkclient](https://github.com/bkerler/mtkclient) by [@bkerler](https://github.com/bkerler) for MediaTek exploitation and research.
-* [libusbK](https://github.com/mcuee/libusbk) by Travis Robinson and [@mcuee](https://github.com/mcuee) for USB driver support.
 * [@LucaCraft89](https://github.com/LucaCraft89) for script improvements and the global variant patch.
 * [@YagizErdemir06](https://github.com/YagizErdemir06) for overall support.
+* [libwdi](https://github.com/pbatard/libwdi) (`wdi-simple`) by [@pbatard](https://github.com/pbatard) for automated USB driver installation.
 * Xiaomi & MediaTek bootloader research community.
 ---
 
 ## 📄 License
 
-This project is licensed under the **GNU Affero General Public License v3.0** — see [LICENSE](LICENSE) for details.
+This project is licensed under the **GNU Affero General Public License v3.0** — see [LICENSE](https://www.gnu.org/licenses/agpl-3.0) for details.

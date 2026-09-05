@@ -1,0 +1,67 @@
+name: Check Upstream Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch latest lk-unlock files
+        run: |
+          echo "Checking for latest lk-unlock.py and xiaomi.pem..."
+          curl -f -sSL "https://raw.githubusercontent.com/georgiynesterov/lk-unlock/main/lk-unlock.py" -o bin/lk-unlock.py
+          curl -f -sSL "https://raw.githubusercontent.com/georgiynesterov/lk-unlock/main/xiaomi.pem" -o bin/xiaomi.pem
+
+      - name: Fetch latest Penumbra binaries
+        run: |
+          echo "Fetching latest Antumbra binaries from shomykohai/penumbra..."
+          # Linux x86_64 binary
+          curl -f -sSL "https://github.com/shomykohai/penumbra/releases/latest/download/antumbra" -o bin/antumbra
+          chmod +x bin/antumbra
+
+          # Windows x86_64 binary
+          curl -f -sSL "https://github.com/shomykohai/penumbra/releases/latest/download/antumbra.exe" -o bin/antumbra.exe
+
+      - name: Check for modifications
+        id: git_status
+        run: |
+          git status --porcelain
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.git_status.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(deps): update upstream lk-unlock and antumbra binaries"
+          branch: "upstream-updates"
+          title: "🤖 Upstream Update: New Penumbra / LK-Unlock Detected"
+          body: |
+            ### Automated Upstream Update
+
+            New releases or updates were detected from upstream repositories:
+            * **LK-Unlock**: Updated `bin/lk-unlock.py` and `bin/xiaomi.pem` from [georgiynesterov/lk-unlock](https://github.com/georgiynesterov/lk-unlock).
+            * **Antumbra (Linux)**: Updated `bin/antumbra` from [shomykohai/penumbra](https://github.com/shomykohai/penumbra/releases/latest).
+            * **Antumbra (Windows)**: Updated `bin/antumbra.exe` from [shomykohai/penumbra](https://github.com/shomykohai/penumbra/releases/latest).
+
+            > [!NOTE]
+            > This Pull Request is on the separate `upstream-updates` branch.
+            > Pull this branch locally to test it on your device before merging to `main`!
+          labels: |
+            dependencies
+            upstream-update

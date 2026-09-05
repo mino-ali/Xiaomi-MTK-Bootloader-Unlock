@@ -75,25 +75,31 @@ if exist public.pem del /f /q public.pem
 if exist signature.bin del /f /q signature.bin
 if exist lk_patched.img del /f /q lk_patched.img
 echo.
-echo Installing libusbK driver for BROM bypass...
-pnputil /add-driver "%~dp0usb_driver\*.inf" /install >nul 2>&1
-echo Driver installation finished.
+echo Checking for MediaTek VCOM drivers...
+if not exist "%TEMP%\mtk_vcom_backup" mkdir "%TEMP%\mtk_vcom_backup"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$vcom = Get-WindowsDriver -Online | Where-Object { $_.OriginalFileName -like '*cdc-acm*' -or ($_.ProviderName -like '*MediaTek*' -and $_.ClassName -eq 'Ports') }; if ($vcom) { $vcom | ForEach-Object { pnputil /export-driver $_.Driver '%TEMP%\mtk_vcom_backup' ; pnputil /delete-driver $_.Driver /uninstall /force } }" >nul 2>&1
+
+echo Registering WinUSB driver for BROM bypass...
+for /f "tokens=*" %%i in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match 'USB\\\\VID_0E8D&PID_0003' } | Select-Object -ExpandProperty InstanceId"') do (
+    pnputil /remove-device "%%i" >nul 2>&1
+)
+wdi-simple.exe -n "MediaTek USB Port" -m "MediaTek Inc." -v 0x0E8D -p 0x0003 -t 0 --silent
+echo Driver registration complete.
 
 echo.
 echo [1/3] Reading preloader...
 echo Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)
-antumbra r preloader %PL_FILE% --da %DA_FILE% -p %PL_FILE%
+antumbra -c r preloader %PL_FILE% --da %DA_FILE% -p %PL_FILE%
 
 echo.
 echo [2/3] Reading lk_a...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra r lk_a lk_a.img --da %DA_FILE% -p %PL_FILE%
+antumbra -c r lk_a lk_a.img --da %DA_FILE% -p %PL_FILE%
 
 echo.
 echo [3/3] Reading lk_b...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra r lk_b lk_b.img --da %DA_FILE% -p %PL_FILE%
-
+antumbra -c r lk_b lk_b.img --da %DA_FILE% -p %PL_FILE%
 echo.
 echo Patching lk...
 python lk-unlock.py patch lk_a.img -o lk_patched.img
@@ -115,23 +121,27 @@ copy /y lk_b.img "backup\lk_b.img" >nul
 echo.
 echo [1/2] Flashing lk_a...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra w lk_a lk_patched.img --da %DA_FILE% -p %PL_FILE%
+antumbra -c w lk_a lk_patched.img --da %DA_FILE% -p %PL_FILE%
 
 echo.
 echo [2/2] Flashing lk_b...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra w lk_b lk_patched.img --da %DA_FILE% -p %PL_FILE%
+antumbra -c w lk_b lk_patched.img --da %DA_FILE% -p %PL_FILE%
 
 echo.
-echo Uninstalling libusbK...
-powershell -NoProfile -Command "$inf = (Get-ChildItem -Path '%~dp0usb_driver\*.inf').Name; if ($inf) { Get-WindowsDriver -Online | Where-Object { $_.OriginalFileName -match $inf } | ForEach-Object { & pnputil /delete-driver $_.Driver /uninstall } }"
-
-for /f "tokens=*" %%i in ('powershell -NoProfile -Command "Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match 'USB\\\\VID_0E8D&PID_0003' } | Select-Object -ExpandProperty InstanceId"') do (
+echo Cleaning up temporary BROM driver assignment...
+for /f "tokens=*" %%i in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match 'USB\\\\VID_0E8D&PID_0003' } | Select-Object -ExpandProperty InstanceId"') do (
     pnputil /remove-device "%%i" >nul 2>&1
 )
 
+if exist "%TEMP%\mtk_vcom_backup\*.inf" (
+    echo Restoring original MediaTek VCOM driver...
+    pnputil /add-driver "%TEMP%\mtk_vcom_backup\*.inf" /install >nul 2>&1
+    rmdir /s /q "%TEMP%\mtk_vcom_backup" >nul 2>&1
+)
+
 pnputil /scan-devices >nul 2>&1
-echo Driver restore complete.
+echo Driver cleanup complete.
 echo.
 echo.
 echo =================================================================
