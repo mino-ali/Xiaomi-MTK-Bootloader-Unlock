@@ -30,11 +30,13 @@ trap restore_modemmanager EXIT
 
 flash_retry() {
     local desc="$1"; shift
-    local max_attempts=10
+    local max_attempts=5
     local attempt
-    for attempt in $(seq 1 "$max_attempts"); do
-        if [ "$attempt" -gt 1 ]; then
-            echo "  Retrying $desc (attempt $attempt/$max_attempts)..."
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+        if [ "$attempt" -eq 1 ]; then
+            echo "  [Attempt 1/$max_attempts] Connecting to $desc..."
+        else
+            echo "  [Attempt $attempt/$max_attempts] Retrying $desc..."
         fi
         if "$@"; then
             return 0
@@ -47,17 +49,19 @@ flash_retry() {
     read -p "Press Enter to exit..."
     exit 1
 }
-if [ ! -f "backup/lk_a.img" ]; then
+LK_A_TARGET=""
+LK_B_TARGET=""
+
+if [ -f "backup/lk_a.img" ] && [ -f "backup/lk_b.img" ]; then
+    LK_A_TARGET="backup/lk_a.img"
+    LK_B_TARGET="backup/lk_b.img"
+elif [ -f "backup/lk.img" ]; then
+    LK_A_TARGET="backup/lk.img"
+    LK_B_TARGET="backup/lk.img"
+else
     echo ""
-    echo "[!] Error: No backup found in bin/backup/ directory!"
-    echo "[!] Cannot restore because backup/lk_a.img is missing."
-    read -p "Press Enter to exit..."
-    exit 1
-fi
-if [ ! -f "backup/lk_b.img" ]; then
-    echo ""
-    echo "[!] Error: No backup found in bin/backup/ directory!"
-    echo "[!] Cannot restore because backup/lk_b.img is missing."
+    echo "[!] Error: No valid LK backup found in bin/backup/ directory!"
+    echo "[!] Cannot restore because backup is missing (need lk_a.img and lk_b.img, or lk.img)."
     read -p "Press Enter to exit..."
     exit 1
 fi
@@ -81,15 +85,46 @@ if [ ! -f "$PL_FILE" ]; then
     exit 1
 fi
 
-echo ""
-echo "[1/2] Flashing lk_a..."
-echo "Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)"
-flash_retry "lk_a" ./antumbra w lk_a backup/lk_a.img --da "$DA_FILE" -p "$PL_FILE"
+BACKUP_PL=""
+if [ -f "backup/preloader_ruby.bin" ]; then
+    BACKUP_PL="backup/preloader_ruby.bin"
+fi
+
+if [ -n "$BACKUP_PL" ]; then
+    echo ""
+    echo "[1/4] Flashing preloader..."
+    echo "Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)"
+    flash_retry "preloader" ./antumbra -c w preloader "$BACKUP_PL" --da "$DA_FILE" -p "$PL_FILE"
+
+    echo ""
+    echo "[2/4] Flashing preloader_backup..."
+    echo "If the device rebooted, please power it off again, then reconnect."
+    flash_retry "preloader_backup" ./antumbra -c w preloader_backup "$BACKUP_PL" --da "$DA_FILE" -p "$PL_FILE"
+
+    echo ""
+    echo "[3/4] Flashing lk_a..."
+    echo "If the device rebooted, please power it off again, then reconnect."
+    flash_retry "lk_a" ./antumbra -c w lk_a "$LK_A_TARGET" --da "$DA_FILE" -p "$PL_FILE"
+
+    echo ""
+    echo "[4/4] Flashing lk_b..."
+    echo "If the device rebooted, please power it off again, then reconnect."
+    flash_retry "lk_b" ./antumbra -c w lk_b "$LK_B_TARGET" --da "$DA_FILE" -p "$PL_FILE"
+else
+    echo ""
+    echo "[1/2] Flashing lk_a..."
+    echo "Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)"
+    flash_retry "lk_a" ./antumbra -c w lk_a "$LK_A_TARGET" --da "$DA_FILE" -p "$PL_FILE"
+
+    echo ""
+    echo "[2/2] Flashing lk_b..."
+    echo "If the device rebooted, please power it off again, then reconnect."
+    flash_retry "lk_b" ./antumbra -c w lk_b "$LK_B_TARGET" --da "$DA_FILE" -p "$PL_FILE"
+fi
 
 echo ""
-echo "[2/2] Flashing lk_b..."
+echo "Formatting para partition..."
 echo "If the device rebooted, please power it off again, then reconnect."
-flash_retry "lk_b" ./antumbra w lk_b backup/lk_b.img --da "$DA_FILE" -p "$PL_FILE"
-
+flash_retry "para format" ./antumbra -c ft para --da "$DA_FILE" -p "$PL_FILE"
 read -p "Press Enter to exit..."
 exit 0

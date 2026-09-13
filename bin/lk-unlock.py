@@ -122,7 +122,7 @@ def get_keys():
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     ))
 
-    print("[+] New keys have been generated and saved into private.pem и public.pem")
+    print("[+] New keys have been generated and saved into private.pem and public.pem")
     return private_key, public_key
 
 
@@ -250,7 +250,7 @@ def extract_token(output: str) -> str:
     token_lines = []
 
     for line in output.splitlines():
-        match = re.match(r"^\(bootloader\)\s+token:\s*(.+)$", line.strip(), re.IGNORECASE)
+        match = re.match(r"^(?:\(bootloader\)\s+)?token:\s*(.+)$", line.strip(), re.IGNORECASE)
         if match:
             token_lines.append(match.group(1).strip())
 

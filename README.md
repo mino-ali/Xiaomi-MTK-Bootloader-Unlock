@@ -53,6 +53,7 @@
 
 ---
 
+<span id="emergency-restore-scripts"></span>
 ## 🔄 Emergency Restore Scripts
 
 If something goes wrong during the unlock process and your device fails to boot up, a `Restore/` folder is included to flash your original stock partition backups back onto the device:
@@ -83,13 +84,21 @@ If something goes wrong during the unlock process and your device fails to boot 
 > After installing all requirements for the first time, a system reboot is required.
 ---
 
+## ❓ Frequently Asked Questions (FAQ)
+
+> [!NOTE]
+> **Q: When trying to reboot into Fastboot mode, my phone is stuck in BROM mode. What should I do?**  
+> **A:** First, run the [Restore script](#emergency-restore-scripts) for your operating system, then try the unlock process again. If the issue is still there, you will need to put **lk.img** and **preloader_ruby.bin** from your firmware in your backup folder inside the bin folder then run the [Restore script](#emergency-restore-scripts).
+
+---
+
 ## 📁 Required Files Setup
 
 To respect copyright and open-source licensing laws, proprietary vendor firmware binaries are **not** included in this repository. You must extract them from your official stock Fastboot ROM before running the scripts:
 
 1. Download the official Xiaomi Fastboot ROM (`.tgz`) matching the exact firmware version currently running on your phone.
 2. Extract the downloaded Fastboot ROM package on your computer.
-3. Copy the following 2 files directly into the `bin/` folder (no renaming needed):
+3. Copy the following 2 files directly into the `bin/` folder:
    * From the `images/` folder of the extracted ROM:  
      Copy `preloader_ruby.bin` into the `bin/` folder.
    * From the folder of the extracted ROM:  
@@ -143,9 +152,9 @@ Ensure both `bin/preloader_ruby.bin` and `bin/MTK_AllInOne_DA.bin` are in place 
 * Cert bypass code adapted from [lkpatcher](https://github.com/R0rt1z2/lkpatcher) and [liblk](https://github.com/R0rt1z2/liblk) by [@R0rt1z2](https://github.com/R0rt1z2).
 * [Penumbra](https://github.com/shomykohai/penumbra) (Antumbra CLI) by [@shomykohai](https://github.com/shomykohai) for dumping and flashing partitions via MediaTek BROM.
 * [mtkclient](https://github.com/bkerler/mtkclient) by [@bkerler](https://github.com/bkerler) for MediaTek exploitation and research.
+* [libwdi](https://github.com/pbatard/libwdi) (`wdi-simple`) by [@pbatard](https://github.com/pbatard) for automated USB driver installation.
 * [@LucaCraft89](https://github.com/LucaCraft89) for script improvements and the global variant patch.
 * [@YagizErdemir06](https://github.com/YagizErdemir06) for overall support.
-* [libwdi](https://github.com/pbatard/libwdi) (`wdi-simple`) by [@pbatard](https://github.com/pbatard) for automated USB driver installation.
 * Xiaomi & MediaTek bootloader research community.
 ---
 

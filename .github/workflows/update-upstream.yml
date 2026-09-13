@@ -17,12 +17,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Fetch latest lk-unlock files
-        run: |
-          echo "Checking for latest lk-unlock.py and xiaomi.pem..."
-          curl -f -sSL "https://raw.githubusercontent.com/georgiynesterov/lk-unlock/main/lk-unlock.py" -o bin/lk-unlock.py
-          curl -f -sSL "https://raw.githubusercontent.com/georgiynesterov/lk-unlock/main/xiaomi.pem" -o bin/xiaomi.pem
-
       - name: Fetch latest Penumbra binaries
         run: |
           echo "Fetching latest Antumbra binaries from shomykohai/penumbra..."
@@ -48,14 +42,13 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(deps): update upstream lk-unlock and antumbra binaries"
+          commit-message: "chore(deps): update upstream antumbra binaries"
           branch: "upstream-updates"
-          title: "🤖 Upstream Update: New Penumbra / LK-Unlock Detected"
+          title: "🤖 Upstream Update: New Penumbra / Antumbra Detected"
           body: |
             ### Automated Upstream Update
 
-            New releases or updates were detected from upstream repositories:
-            * **LK-Unlock**: Updated `bin/lk-unlock.py` and `bin/xiaomi.pem` from [georgiynesterov/lk-unlock](https://github.com/georgiynesterov/lk-unlock).
+            New releases were detected from upstream repository:
             * **Antumbra (Linux)**: Updated `bin/antumbra` from [shomykohai/penumbra](https://github.com/shomykohai/penumbra/releases/latest).
             * **Antumbra (Windows)**: Updated `bin/antumbra.exe` from [shomykohai/penumbra](https://github.com/shomykohai/penumbra/releases/latest).
 
