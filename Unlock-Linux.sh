@@ -57,7 +57,8 @@ echo ""
 echo "Checking and installing required Python dependencies..."
 python3 -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk --break-system-packages > /dev/null 2>&1 || python3 -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo "[!] Warning: Failed to install Python dependencies. Continuing in offline mode..."
+    echo "Warning: installing cryptography and liblk failed if patching lk fails please run this manually"
+    echo "\"python3 -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk --break-system-packages\""
 fi
 
 MM_STOPPED=0
@@ -89,6 +90,7 @@ flash_retry() {
             echo "  [Attempt 1/$max_attempts] Connecting to $desc..."
         else
             echo "  [Attempt $attempt/$max_attempts] Retrying $desc..."
+            rm -f .antumbra_state
         fi
         if "$@"; then
             return 0
@@ -112,6 +114,7 @@ read_retry() {
         else
             echo "  [Attempt $attempt/$max_attempts] Retrying $desc..."
         fi
+        rm -f .antumbra_state
         if "$@"; then
             return 0
         fi
@@ -124,7 +127,7 @@ read_retry() {
     exit 1
 }
 
-rm -f private.pem public.pem signature.bin lk_patched.img
+rm -f private.pem public.pem signature.bin lk_patched.img .antumbra_state
 
 if [ "$PL_FILE" = "preloader_ruby.bin" ] && [ -f "preloader_ruby.bin" ]; then
     PL_SIZE=$(stat -c%s "preloader_ruby.bin" 2>/dev/null || stat -f%z "preloader_ruby.bin" 2>/dev/null || echo 0)
@@ -133,20 +136,11 @@ if [ "$PL_FILE" = "preloader_ruby.bin" ] && [ -f "preloader_ruby.bin" ]; then
         cp -f "preloader_ruby.bin" "backup/preloader_ruby.bin" >/dev/null 2>&1
     fi
 fi
-
 echo ""
-echo "[1/3] Reading preloader..."
+echo "Reading lk_a..."
 echo "Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)"
-read_retry "preloader" ./antumbra -c r preloader "$PL_FILE" --da "$DA_FILE" -p "$PL_FILE"
-echo ""
-echo "[2/3] Reading lk_a..."
-echo "If the device rebooted, please power it off again, then reconnect."
 read_retry "lk_a" ./antumbra -c r lk_a lk_a.img --da "$DA_FILE" -p "$PL_FILE"
-
-echo ""
-echo "[3/3] Reading lk_b..."
-echo "If the device rebooted, please power it off again, then reconnect."
-read_retry "lk_b" ./antumbra -c r lk_b lk_b.img --da "$DA_FILE" -p "$PL_FILE"
+cp -f lk_a.img lk_b.img >/dev/null 2>&1
 
 echo "Patching lk..."
 PATCH_OUTPUT=$(python3 lk-unlock.py patch lk_a.img -o lk_patched.img 2>&1)
@@ -220,7 +214,7 @@ if echo "$PATCH_OUTPUT" | grep -qi "Skipping cert bypass"; then
 
     echo ""
     echo "[*] Device successfully restored to stock!"
-    echo "[*] Please run Unlock-Linux.sh again to unlock your clean stock bootloader."
+    echo "[*] Please reboot then run Unlock-Linux.sh again to unlock your bootloader."
     read -p "Press Enter to exit..."
     exit 0
 fi
@@ -294,6 +288,7 @@ echo ""
 echo "Waiting for fastboot device..."
 
 fastboot wait-for-device
+fastboot set_active a >/dev/null 2>&1
 
 echo ""
 python3 lk-unlock.py unlock

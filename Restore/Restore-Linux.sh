@@ -37,6 +37,7 @@ flash_retry() {
             echo "  [Attempt 1/$max_attempts] Connecting to $desc..."
         else
             echo "  [Attempt $attempt/$max_attempts] Retrying $desc..."
+            rm -f .antumbra_state
         fi
         if "$@"; then
             return 0
@@ -89,6 +90,8 @@ BACKUP_PL=""
 if [ -f "backup/preloader_ruby.bin" ]; then
     BACKUP_PL="backup/preloader_ruby.bin"
 fi
+
+rm -f .antumbra_state
 
 if [ -n "$BACKUP_PL" ]; then
     echo ""

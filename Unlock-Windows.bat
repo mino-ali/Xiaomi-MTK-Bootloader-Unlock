@@ -64,13 +64,15 @@ echo.
 echo Checking and installing required Python dependencies...
 python -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo [!] Warning: Failed to install Python dependencies. Continuing in offline mode...
+    echo Warning: installing cryptography and liblk failed if patching lk fails please run this manually
+    echo "python -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk"
 )
 
 if exist private.pem del /f /q private.pem
 if exist public.pem del /f /q public.pem
 if exist signature.bin del /f /q signature.bin
 if exist lk_patched.img del /f /q lk_patched.img
+if exist .antumbra_state del /f /q .antumbra_state >nul 2>&1
 echo.
 echo Checking for MediaTek VCOM drivers...
 if not exist "%TEMP%\mtk_vcom_backup" mkdir "%TEMP%\mtk_vcom_backup"
@@ -91,18 +93,14 @@ if /i "%PL_FILE%"=="preloader_ruby.bin" if exist "preloader_ruby.bin" (
         )
     )
 )
-echo [1/3] Reading preloader...
+echo Reading lk_a...
 echo Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)
-antumbra -c r preloader %PL_FILE% --da %DA_FILE% -p %PL_FILE%
-echo.
-echo [2/3] Reading lk_a...
-echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c r lk_a lk_a.img --da %DA_FILE% -p %PL_FILE%
-
-echo.
-echo [3/3] Reading lk_b...
-echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c r lk_b lk_b.img --da %DA_FILE% -p %PL_FILE%
+call :read_retry "lk_a" "antumbra -c r lk_a lk_a.img --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
+copy /y lk_a.img lk_b.img >nul 2>&1
 echo.
 echo Patching lk...
 python lk-unlock.py patch lk_a.img -o lk_patched.img > patch_log.tmp 2>&1
@@ -112,7 +110,7 @@ type patch_log.tmp
 findstr /i /c:"Skipping cert bypass" patch_log.tmp >nul 2>&1
 if not errorlevel 1 goto :spoofed_bootloader
 
-if %PATCH_ERR% EQU 0 goto :patch_success
+if "%PATCH_ERR%"=="0" goto :patch_success
 
 findstr /i /c:"modulus not found" patch_log.tmp >nul 2>&1
 if not errorlevel 1 goto :already_patched
@@ -168,26 +166,31 @@ echo [*] Stock backups found. Restoring device to stock firmware...
 echo.
 echo [1/4] Flashing preloader...
 echo Please power off the device completely, then connect the USB cable and hold (Volume up + Volume down + Power)
-antumbra -c w preloader %BACKUP_PL% --da %DA_FILE% -p %PL_FILE%
+call :flash_retry "preloader" "antumbra -c w preloader %BACKUP_PL% --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 ( pause & exit /b 1 )
 
 echo.
 echo [2/4] Flashing preloader_backup...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c w preloader_backup %BACKUP_PL% --da %DA_FILE% -p %PL_FILE%
+call :flash_retry "preloader_backup" "antumbra -c w preloader_backup %BACKUP_PL% --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 ( pause & exit /b 1 )
 
 echo.
 echo [3/4] Flashing lk_a...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c w lk_a %SPOOF_RESTORE_LK_A% --da %DA_FILE% -p %PL_FILE%
+call :flash_retry "lk_a" "antumbra -c w lk_a %SPOOF_RESTORE_LK_A% --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 ( pause & exit /b 1 )
 
 echo.
 echo [4/4] Flashing lk_b...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c w lk_b %SPOOF_RESTORE_LK_B% --da %DA_FILE% -p %PL_FILE%
+call :flash_retry "lk_b" "antumbra -c w lk_b %SPOOF_RESTORE_LK_B% --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 ( pause & exit /b 1 )
 echo.
 echo Formatting para partition...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c ft para --da %DA_FILE% -p %PL_FILE%
+call :flash_retry "para format" "antumbra -c ft para --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 ( pause & exit /b 1 )
 
 echo.
 echo Cleaning up temporary BROM driver assignment...
@@ -206,7 +209,7 @@ echo Driver cleanup complete.
 
 echo.
 echo [*] Device successfully restored to stock!
-echo [*] Please run Unlock-Windows.bat again to unlock your clean stock bootloader.
+echo [*] Please reboot then run Unlock-Windows.bat again to unlock your bootloader.
 pause
 exit /b 0
 
@@ -252,12 +255,20 @@ if not exist "backup\lk_a.img" (
 echo.
 echo [1/2] Flashing lk_a...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c w lk_a lk_patched.img --da %DA_FILE% -p %PL_FILE%
+call :flash_retry "lk_a" "antumbra -c w lk_a lk_patched.img --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
 
 echo.
 echo [2/2] Flashing lk_b...
 echo If the device rebooted, please power it off again, then reconnect.
-antumbra -c w lk_b lk_patched.img --da %DA_FILE% -p %PL_FILE%
+call :flash_retry "lk_b" "antumbra -c w lk_b lk_patched.img --da %DA_FILE% -p %PL_FILE%"
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
 echo.
 echo Cleaning up temporary BROM driver assignment...
 for /f "tokens=*" %%i in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match 'USB\\\\VID_0E8D&PID_0003' } | Select-Object -ExpandProperty InstanceId"') do (
@@ -289,6 +300,7 @@ echo.
 
 echo Waiting for fastboot device...
 fastboot wait-for-device
+fastboot set_active a >nul 2>&1
 
 echo.
 echo Device detected! Starting unlock...
@@ -304,3 +316,54 @@ echo.
 echo Unlock success!
 pause
 exit /b 0
+
+:read_retry
+set "RETRY_DESC=%~1"
+set "RETRY_CMD=%~2"
+set "ATTEMPT=1"
+:read_retry_loop
+if %ATTEMPT% EQU 1 (
+    echo   [Attempt 1/5] Connecting to %RETRY_DESC%...
+) else (
+    echo   [Attempt %ATTEMPT%/5] Retrying %RETRY_DESC%...
+)
+if exist .antumbra_state del /f /q .antumbra_state >nul 2>&1
+%RETRY_CMD%
+if not errorlevel 1 exit /b 0
+
+set /a ATTEMPT+=1
+if %ATTEMPT% LEQ 5 (
+    timeout /t 1 /nobreak >nul
+    goto :read_retry_loop
+)
+
+echo.
+echo Error reading %RETRY_DESC% after 5 attempts. Please check the output above.
+pause
+exit /b 1
+
+:flash_retry
+set "RETRY_DESC=%~1"
+set "RETRY_CMD=%~2"
+set "ATTEMPT=1"
+:flash_retry_loop
+if %ATTEMPT% EQU 1 (
+    echo   [Attempt 1/5] Connecting to %RETRY_DESC%...
+) else (
+    echo   [Attempt %ATTEMPT%/5] Retrying %RETRY_DESC%...
+    if exist .antumbra_state del /f /q .antumbra_state >nul 2>&1
+)
+%RETRY_CMD%
+if not errorlevel 1 exit /b 0
+
+set /a ATTEMPT+=1
+if %ATTEMPT% LEQ 5 (
+    timeout /t 1 /nobreak >nul
+    goto :flash_retry_loop
+)
+
+echo.
+echo Error flashing %RETRY_DESC% after 5 attempts. Please check the output above.
+pause
+exit /b 1
+

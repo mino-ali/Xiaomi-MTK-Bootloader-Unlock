@@ -68,7 +68,7 @@ If something goes wrong during the unlock process and your device fails to boot 
 
 ## 📦 Requirements
 
-### Windows
+### Windows 10/11
 1. Python (make sure it is added to your system PATH)
 2. Git
 3. Fastboot / Android USB drivers
@@ -89,6 +89,12 @@ If something goes wrong during the unlock process and your device fails to boot 
 > [!NOTE]
 > **Q: When trying to reboot into Fastboot mode, my phone is stuck in BROM mode. What should I do?**  
 > **A:** First, run the [Restore script](#emergency-restore-scripts) for your operating system, then try the unlock process again. If the issue is still there, you will need to put **lk.img** and **preloader_ruby.bin** from your firmware in your backup folder inside the bin folder then run the [Restore script](#emergency-restore-scripts).
+> 
+> **Q: I get "Failed to get storage for partition parsing" or "Partition 'lk_a' not found on device". What should I do?**  
+> **A:**  
+> 1. Make sure your phone is **completely powered off** before connecting (hold Power for 15 seconds until completely shut down, then wait 5 seconds before holding the 3-button BROM combo).  
+> 2. Ensure `preloader_ruby.bin` and `MTK_AllInOne_DA.bin` placed in `bin/` were extracted from the Fastboot ROM matching the **exact firmware version** (MIUI vs HyperOS) currently installed on the phone.  
+> 3. Use a direct **USB 2.0 port** on the back of your motherboard (avoid USB 3.0/3.2 ports, USB hubs, or Type-C to Type-C cables as they can cause transfer timeouts).
 
 ---
 
