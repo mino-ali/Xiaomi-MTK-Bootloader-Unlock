@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+shopt -s nullglob
 
 cd "$(dirname "$0")/bin" || exit
 
@@ -12,6 +13,16 @@ if [[ "${CONTINUE,,}" != "y" ]]; then
     echo "Operation cancelled by user."
     read -p "Press Enter to exit..."
     exit 1
+fi
+
+echo ""
+echo "Select cert bypass mode:"
+echo "  1. override (default)"
+echo "  2. wrap"
+read -p "Choice [1]: " WRAP_CHOICE
+USE_WRAP=""
+if [ "$WRAP_CHOICE" = "2" ]; then
+    USE_WRAP="--wrap"
 fi
 
 echo ""
@@ -31,25 +42,47 @@ if ! command -v fastboot &> /dev/null; then
 fi
 echo ""
 echo "Checking for required vendor binaries..."
-DA_FILE="MTK_AllInOne_DA.bin"
-[ ! -f "$DA_FILE" ] && [ -f "DA.bin" ] && DA_FILE="DA.bin"
-if [ ! -f "$DA_FILE" ]; then
+DA_FILE=""
+for pattern in "MTK_AllInOne_DA*.bin" "*AllInOne_DA*.bin" "DA_v6*.bin" "DA_V6*.bin" "da_v6*.bin" "MTK_DA*.bin" "mtk_da*.bin" "DA_BR*.bin" "DA_PL*.bin" "DA.bin" "da.bin" "DA_*.bin"; do
+    for f in $pattern; do
+        if [ -f "$f" ]; then
+            lower_name="$(basename "$f" | tr '[:upper:]' '[:lower:]')"
+            case "$lower_name" in
+                data*.bin|userdata*.bin|metadata*.bin) continue ;;
+            esac
+            DA_FILE="$f"
+            break 2
+        fi
+    done
+done
+if [ -z "$DA_FILE" ]; then
     echo ""
-    echo "[!] Error: MTK_AllInOne_DA.bin is missing from the bin directory!"
-    echo "[!] Please extract MTK_AllInOne_DA.bin from your stock Fastboot ROM"
-    echo "[!] and place it inside the bin/ directory."
+    echo "[!] Error: Download Agent file is missing from bin/!"
+    echo "[!] Please place your DA file inside the bin/ directory."
     read -p "Press Enter to exit..."
     exit 1
 fi
 
-PL_FILE="preloader_ruby.bin"
-[ ! -f "$PL_FILE" ] && [ -f "preloader.bin" ] && PL_FILE="preloader.bin"
-[ ! -f "$PL_FILE" ] && [ -f "preloader_raw.bin" ] && PL_FILE="preloader_raw.bin"
-if [ ! -f "$PL_FILE" ]; then
+PL_FILE=""
+for f in preloader_*.bin; do
+    if [ -f "$f" ]; then
+        PL_FILE="$f"
+        break
+    fi
+done
+if [ -z "$PL_FILE" ] && [ -f "preloader.bin" ]; then
+    PL_FILE="preloader.bin"
+fi
+if [ -z "$PL_FILE" ] && [ -f "preloader_raw.img" ]; then
+    PL_FILE="preloader_raw.img"
+fi
+if [ -z "$PL_FILE" ] && [ -f "preloader_raw.bin" ]; then
+    PL_FILE="preloader_raw.bin"
+fi
+if [ -z "$PL_FILE" ]; then
     echo ""
-    echo "[!] Error: preloader_ruby.bin is missing from the bin directory!"
-    echo "[!] Please extract preloader_ruby.bin from your stock ROM images/ folder"
-    echo "[!] and place it inside the bin/ directory."
+    echo "[!] Error: Preloader file is missing from bin/!"
+    echo "[!] Please place your preloader file inside the bin/ directory."
     read -p "Press Enter to exit..."
     exit 1
 fi
@@ -79,7 +112,7 @@ restore_modemmanager() {
         sudo systemctl start ModemManager 2>/dev/null
     fi
 }
-trap restore_modemmanager EXIT
+trap restore_modemmanager EXIT INT TERM HUP
 
 flash_retry() {
     local desc="$1"; shift
@@ -129,11 +162,12 @@ read_retry() {
 
 rm -f private.pem public.pem signature.bin lk_patched.img .antumbra_state
 
-if [ "$PL_FILE" = "preloader_ruby.bin" ] && [ -f "preloader_ruby.bin" ]; then
-    PL_SIZE=$(stat -c%s "preloader_ruby.bin" 2>/dev/null || stat -f%z "preloader_ruby.bin" 2>/dev/null || echo 0)
+if [ -n "$PL_FILE" ] && [ -f "$PL_FILE" ]; then
+    PL_SIZE=$(stat -c%s "$PL_FILE" 2>/dev/null || stat -f%z "$PL_FILE" 2>/dev/null || echo 0)
     if [ "$PL_SIZE" -gt 0 ] && [ "$PL_SIZE" -lt 2097152 ] 2>/dev/null; then
         mkdir -p backup >/dev/null 2>&1
-        cp -f "preloader_ruby.bin" "backup/preloader_ruby.bin" >/dev/null 2>&1
+        cp -f "$PL_FILE" "backup/$PL_FILE" >/dev/null 2>&1
+        cp -f "$PL_FILE" "backup/preloader.bin" >/dev/null 2>&1
     fi
 fi
 echo ""
@@ -143,7 +177,7 @@ read_retry "lk_a" ./antumbra -c r lk_a lk_a.img --da "$DA_FILE" -p "$PL_FILE"
 cp -f lk_a.img lk_b.img >/dev/null 2>&1
 
 echo "Patching lk..."
-PATCH_OUTPUT=$(python3 lk-unlock.py patch lk_a.img -o lk_patched.img 2>&1)
+PATCH_OUTPUT=$(python3 lk-unlock.py patch lk_a.img -o lk_patched.img $USE_WRAP 2>&1)
 PATCH_EXIT=$?
 echo "$PATCH_OUTPUT"
 
@@ -163,25 +197,33 @@ if echo "$PATCH_OUTPUT" | grep -qi "Skipping cert bypass"; then
     fi
 
     BACKUP_PL=""
-    if [ -f "backup/preloader_ruby.bin" ]; then
-        BACKUP_PL="backup/preloader_ruby.bin"
+    if [ -n "$PL_FILE" ] && [ -f "backup/$PL_FILE" ]; then
+        BACKUP_PL="backup/$PL_FILE"
+    elif [ -f "backup/preloader.bin" ]; then
+        BACKUP_PL="backup/preloader.bin"
+    else
+        for f in backup/preloader*.bin backup/preloader*.img; do
+            if [ -f "$f" ]; then
+                BACKUP_PL="$f"
+                break
+            fi
+        done
     fi
 
     if [ -z "$SPOOF_RESTORE_LK_A" ]; then
         echo ""
-        echo "[!] Error: No stock LK backup was found to restore from!"
-        echo "[!] To fix this, extract lk.img (or lk_a.img/lk_b.img) and preloader_ruby.bin"
-        echo "[!] from your official stock Fastboot ROM and copy them into the bin/backup/ directory."
-        echo "[!] Then run Restore-Linux.sh (in the Restore directory) to restore stock firmware first."
+        echo "[!] Error: No stock LK backup found to restore from!"
+        echo "[!] Please copy your stock lk and preloader into bin/backup/,"
+        echo "[!] then run Restore-Linux.sh to restore stock firmware first."
         read -p "Press Enter to exit..."
         exit 1
     fi
 
     if [ -z "$BACKUP_PL" ]; then
         echo ""
-        echo "[!] Error: No stock preloader backup found in the backup directory!"
-        echo "[!] Cannot safely restore from a spoofed bootloader without stock preloader."
-        echo "[!] Please copy preloader_ruby.bin into the bin/backup/ directory, then try again."
+        echo "[!] Error: No stock preloader backup found in bin/backup/!"
+        echo "[!] Cannot safely restore without stock preloader."
+        echo "[!] Please copy your stock preloader into bin/backup/ and try again."
         read -p "Press Enter to exit..."
         exit 1
     fi
@@ -241,7 +283,7 @@ if [ $PATCH_EXIT -ne 0 ]; then
         fi
         echo "[*] Found stock backup in backup directory. Using it to re-patch and synchronize keys..."
         cp "$STOCK_LK_SOURCE" lk_a.img
-        python3 lk-unlock.py patch lk_a.img -o lk_patched.img
+        python3 lk-unlock.py patch lk_a.img -o lk_patched.img $USE_WRAP
         if [ $? -ne 0 ]; then
             echo ""
             echo "[!] Error during re-patching backup LK."
@@ -282,13 +324,14 @@ echo " 3. Power on into Fastboot mode:"
 echo "    -> Press and hold (Volume Down + Power) until fastboot shows."
 echo " 4. Reconnect the USB cable."
 echo ""
-echo " Unable to reboot? Run the restore script and try again!"
+echo " Unable to reboot? Run Restore-Linux.sh and try again!"
 echo "================================================================="
 echo ""
 echo "Waiting for fastboot device..."
 
-fastboot wait-for-device
-fastboot set_active a >/dev/null 2>&1
+while [ -z "$(fastboot devices 2>/dev/null)" ]; do
+    sleep 1
+done
 
 echo ""
 python3 lk-unlock.py unlock
@@ -302,3 +345,4 @@ fi
 echo ""
 echo "Unlock success!"
 read -p "Press Enter to exit..."
+exit 0

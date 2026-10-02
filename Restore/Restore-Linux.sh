@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+shopt -s nullglob
 
 BACKUP_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -26,7 +27,7 @@ restore_modemmanager() {
         sudo systemctl start ModemManager 2>/dev/null
     fi
 }
-trap restore_modemmanager EXIT
+trap restore_modemmanager EXIT INT TERM HUP
 
 flash_retry() {
     local desc="$1"; shift
@@ -67,28 +68,63 @@ else
     exit 1
 fi
 
-DA_FILE="MTK_AllInOne_DA.bin"
-[ ! -f "$DA_FILE" ] && [ -f "DA.bin" ] && DA_FILE="DA.bin"
-if [ ! -f "$DA_FILE" ]; then
+DA_FILE=""
+for pattern in "MTK_AllInOne_DA*.bin" "*AllInOne_DA*.bin" "DA_v6*.bin" "DA_V6*.bin" "da_v6*.bin" "MTK_DA*.bin" "mtk_da*.bin" "DA_BR*.bin" "DA_PL*.bin" "DA.bin" "da.bin" "DA_*.bin"; do
+    for f in $pattern; do
+        if [ -f "$f" ]; then
+            lower_name="$(basename "$f" | tr '[:upper:]' '[:lower:]')"
+            case "$lower_name" in
+                data*.bin|userdata*.bin|metadata*.bin) continue ;;
+            esac
+            DA_FILE="$f"
+            break 2
+        fi
+    done
+done
+if [ -z "$DA_FILE" ]; then
     echo ""
-    echo "[!] Error: MTK_AllInOne_DA.bin is missing from the bin directory!"
+    echo "[!] Error: Download Agent file is missing from bin/!"
+    echo "[!] Please place your DA file inside the bin/ directory."
     read -p "Press Enter to exit..."
     exit 1
 fi
 
-PL_FILE="preloader_ruby.bin"
-[ ! -f "$PL_FILE" ] && [ -f "preloader.bin" ] && PL_FILE="preloader.bin"
-[ ! -f "$PL_FILE" ] && [ -f "preloader_raw.bin" ] && PL_FILE="preloader_raw.bin"
-if [ ! -f "$PL_FILE" ]; then
+PL_FILE=""
+for f in preloader_*.bin; do
+    if [ -f "$f" ]; then
+        PL_FILE="$f"
+        break
+    fi
+done
+if [ -z "$PL_FILE" ] && [ -f "preloader.bin" ]; then
+    PL_FILE="preloader.bin"
+fi
+if [ -z "$PL_FILE" ] && [ -f "preloader_raw.img" ]; then
+    PL_FILE="preloader_raw.img"
+fi
+if [ -z "$PL_FILE" ] && [ -f "preloader_raw.bin" ]; then
+    PL_FILE="preloader_raw.bin"
+fi
+if [ -z "$PL_FILE" ]; then
     echo ""
-    echo "[!] Error: preloader_ruby.bin is missing from the bin directory!"
+    echo "[!] Error: Preloader file is missing from bin/!"
+    echo "[!] Please place your preloader file inside the bin/ directory."
     read -p "Press Enter to exit..."
     exit 1
 fi
 
 BACKUP_PL=""
-if [ -f "backup/preloader_ruby.bin" ]; then
-    BACKUP_PL="backup/preloader_ruby.bin"
+if [ -n "$PL_FILE" ] && [ -f "backup/$PL_FILE" ]; then
+    BACKUP_PL="backup/$PL_FILE"
+elif [ -f "backup/preloader.bin" ]; then
+    BACKUP_PL="backup/preloader.bin"
+else
+    for f in backup/preloader_*.bin backup/preloader_*.img; do
+        if [ -f "$f" ]; then
+            BACKUP_PL="$f"
+            break
+        fi
+    done
 fi
 
 rm -f .antumbra_state
