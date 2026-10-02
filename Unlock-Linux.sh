@@ -90,8 +90,7 @@ echo ""
 echo "Checking and installing required Python dependencies..."
 python3 -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk --break-system-packages > /dev/null 2>&1 || python3 -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo "Warning: installing cryptography and liblk failed if patching lk fails please run this manually"
-    echo "\"python3 -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk --break-system-packages\""
+    echo "Warning: Failed to install Python dependencies. If patching LK fails, check your internet connection and that all requirements are installed."
 fi
 
 MM_STOPPED=0

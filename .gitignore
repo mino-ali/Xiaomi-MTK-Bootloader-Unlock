@@ -36,12 +36,13 @@ bin/.antumbra_state
 *.state
 
 # Release archives & compressed packages
+*.7z
+*.zip
+*.tar.gz
+
 # WDI generated runtime driver cache
 usb_driver/
 bin/usb_driver/
-
-# OS & Editor files
-*.7z
 
 # Temporary logs & files
 *.log

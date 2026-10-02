@@ -88,8 +88,7 @@ echo.
 echo Checking and installing required Python dependencies...
 python -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo Warning: installing cryptography and liblk failed if patching lk fails please run this manually
-    echo "python -m pip install -q cryptography git+https://github.com/R0rt1z2/liblk"
+    echo Warning: Failed to install Python dependencies. If patching LK fails, check your internet connection and that all requirements are installed.
 )
 
 if exist private.pem del /f /q private.pem
